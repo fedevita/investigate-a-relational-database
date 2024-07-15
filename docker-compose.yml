@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: my-postgres-db
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - pgnetwork
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: my-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@domain.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+    ports:
+      - "80:80"
+    networks:
+      - pgnetwork
+
+networks:
+  pgnetwork:
+
+volumes:
+  pgdata:
+  pgadmindata:
