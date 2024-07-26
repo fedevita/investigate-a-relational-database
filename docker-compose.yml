@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_PASSWORD: mysecretpassword
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./dumps:/docker-entrypoint-initdb.d  # Mount the dumps directory
     ports:
       - "5432:5432"
     networks:
@@ -30,5 +30,4 @@ networks:
   pgnetwork:
 
 volumes:
-  pgdata:
   pgadmindata:
