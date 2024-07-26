@@ -1,176 +1,197 @@
 -- Q1 - WHICH EMPLOYEE HAS SOLD THE MOST?
 /*
-In general, Stephens Jon tends to contribute significantly more to sales compared to the rest of the staff. Notably, in the month of May, the gap in his favor is greater compared to other months.
+IN GENERAL, STEPHENS JON TENDS TO CONTRIBUTE SIGNIFICANTLY MORE TO SALES COMPARED TO THE REST OF THE STAFF. NOTABLY, IN THE MONTH OF MAY, THE GAP IN HIS FAVOR IS GREATER COMPARED TO OTHER MONTHS.
 */
 
-WITH p1 AS (
+WITH P1 AS (
     SELECT 
-        DATE_TRUNC('month', p.payment_date) + INTERVAL '1 month' - INTERVAL '1 second' AS payment_date_eom,
-        p.staff_id,
-        p.amount
-    FROM payment p
+        DATE_TRUNC('MONTH', P.PAYMENT_DATE) + INTERVAL '1 MONTH' - INTERVAL '1 SECOND' AS PAYMENT_DATE_EOM,
+        P.STAFF_ID,
+        P.AMOUNT
+    FROM PAYMENT P
 ),
-p2 AS (
+P2 AS (
     SELECT 
-        payment_date_eom,
-        SUM(p1.amount) AS amt_tot_month
-    FROM p1
-    GROUP BY payment_date_eom
+        PAYMENT_DATE_EOM,
+        SUM(P1.AMOUNT) AS AMT_TOT_MONTH
+    FROM P1
+    GROUP BY PAYMENT_DATE_EOM
 )
 SELECT 
-    p1.payment_date_eom,
-    CONCAT(s.last_name, ' ', s.first_name) AS employee_name,
-    SUM(amount) AS amt_staff,
-    MAX(p2.amt_tot_month) AS amt_tot_month,
-    SUM(amount) / MAX(p2.amt_tot_month) * 100 AS perc_profit_per_staff
-FROM staff s
-JOIN p1 ON s.staff_id = p1.staff_id 
-JOIN p2 ON p1.payment_date_eom = p2.payment_date_eom
-GROUP BY p1.payment_date_eom, s.staff_id, CONCAT(s.last_name, ' ', s.first_name)
-ORDER BY p1.payment_date_eom, CONCAT(s.last_name, ' ', s.first_name);
+    P1.PAYMENT_DATE_EOM,
+    CONCAT(S.LAST_NAME, ' ', S.FIRST_NAME) AS EMPLOYEE_NAME,
+    SUM(AMOUNT) AS AMT_STAFF,
+    MAX(P2.AMT_TOT_MONTH) AS AMT_TOT_MONTH,
+    SUM(AMOUNT)::DECIMAL / MAX(P2.AMT_TOT_MONTH) AS PERC_PROFIT_PER_STAFF
+FROM STAFF S
+JOIN P1 ON S.STAFF_ID = P1.STAFF_ID 
+JOIN P2 ON P1.PAYMENT_DATE_EOM = P2.PAYMENT_DATE_EOM
+GROUP BY P1.PAYMENT_DATE_EOM, S.STAFF_ID, CONCAT(S.LAST_NAME, ' ', S.FIRST_NAME)
+ORDER BY P1.PAYMENT_DATE_EOM, CONCAT(S.LAST_NAME, ' ', S.FIRST_NAME);
 
 -- Q2 - IS IT POSSIBLE TO OPTIMIZE THE FILM INVENTORY?
 /*
-4.2% of the films do not have excess copies but have not had any rentals and are not in the inventory. I suggest updating the film list to remove them.
+4.2% OF THE FILMS DO NOT HAVE EXCESS COPIES BUT HAVE NOT HAD ANY RENTALS AND ARE NOT IN THE INVENTORY. I SUGGEST UPDATING THE FILM LIST TO REMOVE THEM.
 
-76.10% of the films have one more copy than the historical maximum of concurrent rentals. This is considered the standard and ensures an additional copy in case of unusual demand.
+76.10% OF THE FILMS HAVE ONE MORE COPY THAN THE HISTORICAL MAXIMUM OF CONCURRENT RENTALS. THIS IS CONSIDERED THE STANDARD AND ENSURES AN ADDITIONAL COPY IN CASE OF UNUSUAL DEMAND.
 
-The remaining 19.70% of the films have 2 or more copies in excess compared to the historical maximum of concurrent rentals. Here, it might be possible to optimize by selling the excess copies, thus reducing storage costs or potential waste in future purchases of unnecessary copies.
+THE REMAINING 19.70% OF THE FILMS HAVE 2 OR MORE COPIES IN EXCESS COMPARED TO THE HISTORICAL MAXIMUM OF CONCURRENT RENTALS. HERE, IT MIGHT BE POSSIBLE TO OPTIMIZE BY SELLING THE EXCESS COPIES, THUS REDUCING STORAGE COSTS OR POTENTIAL WASTE IN FUTURE PURCHASES OF UNNECESSARY COPIES.
 */
 
 WITH 
--- Rentals with film info
-t0 AS (
+-- RENTALS WITH FILM INFO
+T0 AS (
     SELECT 
-        r1.rental_id,
-        r1.rental_date,
-        r1.return_date,
-        r1.inventory_id,
-        i.film_id
-    FROM rental r1
-    JOIN inventory i ON r1.inventory_id = i.inventory_id 
+        R1.RENTAL_ID,
+        R1.RENTAL_DATE,
+        R1.RETURN_DATE,
+        R1.INVENTORY_ID,
+        I.FILM_ID
+    FROM RENTAL R1
+    JOIN INVENTORY I ON R1.INVENTORY_ID = I.INVENTORY_ID 
 ),
--- Rentals with data on parallel rentals
-t2 AS (
+-- RENTALS WITH DATA ON PARALLEL RENTALS
+T2 AS (
     SELECT 
-        t0.rental_id,
-        t0.film_id,
-        COUNT(DISTINCT t1.inventory_id) AS parallel_rental
-    FROM t0
-    LEFT JOIN t0 t1 ON t0.rental_id <> t1.rental_id
-    AND t0.film_id = t1.film_id
-    AND t1.rental_date BETWEEN t0.rental_date AND t0.return_date
-    GROUP BY t0.rental_id, t0.film_id
-    ORDER BY t0.rental_id
+        T0.RENTAL_ID,
+        T0.FILM_ID,
+        COUNT(DISTINCT T1.INVENTORY_ID) AS PARALLEL_RENTAL
+    FROM T0
+    LEFT JOIN T0 T1 ON T0.RENTAL_ID <> T1.RENTAL_ID
+    AND T0.FILM_ID = T1.FILM_ID
+    AND T1.RENTAL_DATE BETWEEN T0.RENTAL_DATE AND T0.RETURN_DATE
+    GROUP BY T0.RENTAL_ID, T0.FILM_ID
+    ORDER BY T0.RENTAL_ID
 ),
--- Maximum parallel rentals per film
-t3 AS (
+-- MAXIMUM PARALLEL RENTALS PER FILM
+T3 AS (
     SELECT 
-        film_id,
-        MAX(parallel_rental) AS max_parallel_rental
-    FROM t2
-    GROUP BY film_id
+        FILM_ID,
+        MAX(PARALLEL_RENTAL) AS MAX_PARALLEL_RENTAL
+    FROM T2
+    GROUP BY FILM_ID
 ),
--- Copies in stock per film
-t4 AS (
+-- COPIES IN STOCK PER FILM
+T4 AS (
     SELECT 
-        f.film_id,
-        COUNT(i.inventory_id) AS copies_in_stock
-    FROM film f
-    LEFT JOIN inventory i ON f.film_id = i.film_id
-    GROUP BY f.film_id
+        F.FILM_ID,
+        COUNT(I.INVENTORY_ID) AS COPIES_IN_STOCK
+    FROM FILM F
+    LEFT JOIN INVENTORY I ON F.FILM_ID = I.FILM_ID
+    GROUP BY F.FILM_ID
 ),
-t5 AS (
-    -- Base data with metrics of interest
+T5 AS (
+    -- BASE DATA WITH METRICS OF INTEREST
     SELECT 
-        t3.film_id,
-        t3.max_parallel_rental,
-        t4.copies_in_stock,
-        t4.copies_in_stock - t3.max_parallel_rental AS excess_copies
-    FROM t3
-    LEFT JOIN t4 ON t3.film_id = t4.film_id
+        T3.FILM_ID,
+        T3.MAX_PARALLEL_RENTAL,
+        T4.COPIES_IN_STOCK,
+        T4.COPIES_IN_STOCK - T3.MAX_PARALLEL_RENTAL AS EXCESS_COPIES
+    FROM T3
+    LEFT JOIN T4 ON T3.FILM_ID = T4.FILM_ID
 ),
-t6 AS (
-    -- Detail per film with complete metrics
+T6 AS (
+    -- DETAIL PER FILM WITH COMPLETE METRICS
     SELECT 
-        f.film_id,
-        f.title,
-        COALESCE(t5.max_parallel_rental, 0) AS max_parallel_rental,
-        COALESCE(t5.copies_in_stock, 0) AS copies_in_stock,
-        COALESCE(t5.excess_copies, 0) AS excess_copies
-    FROM film f
-    LEFT JOIN t5 ON f.film_id = t5.film_id
-    ORDER BY COALESCE(t5.excess_copies, 0) DESC
+        F.FILM_ID,
+        F.TITLE,
+        COALESCE(T5.MAX_PARALLEL_RENTAL, 0) AS MAX_PARALLEL_RENTAL,
+        COALESCE(T5.COPIES_IN_STOCK, 0) AS COPIES_IN_STOCK,
+        COALESCE(T5.EXCESS_COPIES, 0) AS EXCESS_COPIES
+    FROM FILM F
+    LEFT JOIN T5 ON F.FILM_ID = T5.FILM_ID
+    ORDER BY COALESCE(T5.EXCESS_COPIES, 0) DESC
 )
 SELECT 
-    excess_copies,
-    MAX((SELECT COUNT(*) FROM film)) AS total_films,
-    COUNT(*) AS film_count_per_category,
-    COUNT(*)::DECIMAL / MAX((SELECT COUNT(*) FROM film)) AS perc_films_per_category
-FROM t6
-GROUP BY excess_copies;
+    EXCESS_COPIES,
+    MAX((SELECT COUNT(*) FROM FILM)) AS TOTAL_FILMS,
+    COUNT(*) AS FILM_COUNT_PER_CATEGORY,
+    COUNT(*)::DECIMAL / MAX((SELECT COUNT(*) FROM FILM)) AS PERC_FILMS_PER_CATEGORY
+FROM T6
+GROUP BY EXCESS_COPIES;
 
 -- Q3 - HOW IS THE DAILY PAYMENT TREND COMPARED TO THE PREVIOUS DAY DIVIDED BY MOVIE RATING?
 /*
-Analyzing the graph, it is possible to notice a very inconsistent trend. It is evident from the graph that within the sample
-there is a possible pattern characterized by a significant drop in sales of about 90% regardless of the movie rating, followed by
-considerable sales peaks reaching increases in the order of 700% compared to the previous day.
+ANALYZING THE GRAPH, IT IS POSSIBLE TO NOTICE A VERY INCONSISTENT TREND. IT IS EVIDENT FROM THE GRAPH THAT WITHIN THE SAMPLE
+THERE IS A POSSIBLE PATTERN CHARACTERIZED BY A SIGNIFICANT DROP IN SALES OF ABOUT 90% REGARDLESS OF THE MOVIE RATING, FOLLOWED BY
+CONSIDERABLE SALES PEAKS REACHING INCREASES IN THE ORDER OF 700% COMPARED TO THE PREVIOUS DAY.
 */
 
-WITH t0 AS (
+WITH T0 AS (
     SELECT 
-        DATE_TRUNC('day', p.payment_date) AS ref_date,
-        f.rating,
-        p.amount
-    FROM payment p
-    JOIN rental r ON p.rental_id = r.rental_id
-    JOIN inventory i ON r.inventory_id = i.inventory_id
-    JOIN film f ON i.film_id = f.film_id
+        DATE_TRUNC('DAY', P.PAYMENT_DATE) AS REF_DATE,
+        F.RATING,
+        P.AMOUNT
+    FROM PAYMENT P
+    JOIN RENTAL R ON P.RENTAL_ID = R.RENTAL_ID
+    JOIN INVENTORY I ON R.INVENTORY_ID = I.INVENTORY_ID
+    JOIN FILM F ON I.FILM_ID = F.FILM_ID
 ),
-t1 AS (
+T1 AS (
     SELECT 
-        ref_date,
-        rating,
-        SUM(amount) AS amt_sum
-    FROM t0
-    GROUP BY ref_date, rating
+        REF_DATE,
+        RATING,
+        SUM(AMOUNT) AS AMT_SUM
+    FROM T0
+    GROUP BY REF_DATE, RATING
 ),
-t2 AS (
+T2 AS (
     SELECT 
-        ref_date,
-        rating,
-        amt_sum,
-        LAG(amt_sum) OVER (PARTITION BY rating ORDER BY ref_date) AS prev_amt_sum
-    FROM t1
+        REF_DATE,
+        RATING,
+        AMT_SUM,
+        LAG(AMT_SUM) OVER (PARTITION BY RATING ORDER BY REF_DATE) AS PREV_AMT_SUM
+    FROM T1
 ),
-t3 AS (
+T3 AS (
     SELECT 
-        ref_date,
-        rating,
-        amt_sum,
-        amt_sum - COALESCE(prev_amt_sum, 0) AS diff_cumulative,
+        REF_DATE,
+        RATING,
+        AMT_SUM,
+        AMT_SUM - COALESCE(PREV_AMT_SUM, 0) AS DIFF_CUMULATIVE,
         CASE 
-            WHEN prev_amt_sum IS NULL THEN 0
-            ELSE (amt_sum - COALESCE(prev_amt_sum, 0)) / COALESCE(prev_amt_sum, 0)
-        END AS perc_change
-    FROM t2
+            WHEN PREV_AMT_SUM IS NULL THEN 0
+            ELSE (AMT_SUM - COALESCE(PREV_AMT_SUM, 0)) / COALESCE(PREV_AMT_SUM, 0)
+        END AS PERC_CHANGE
+    FROM T2
     WHERE 
         CASE 
-            WHEN prev_amt_sum IS NULL THEN 0
-            ELSE (amt_sum - COALESCE(prev_amt_sum, 0)) / COALESCE(prev_amt_sum, 0)
+            WHEN PREV_AMT_SUM IS NULL THEN 0
+            ELSE (AMT_SUM - COALESCE(PREV_AMT_SUM, 0)) / COALESCE(PREV_AMT_SUM, 0)
         END <> 0
 )
 SELECT 
-    ref_date,
-    rating,
-    amt_sum,
-    diff_cumulative,
-    perc_change
+    REF_DATE,
+    RATING,
+    AMT_SUM,
+    DIFF_CUMULATIVE,
+    PERC_CHANGE
 FROM 
-    t3
+    T3
 ORDER BY 
-    ref_date, rating;
+    REF_DATE, RATING;
 
+-- Q4 - TOP 5 COUNTRIES TO INVEST IN BY OPENING STORES?
+/*
+THE MOST INTERESTING MARKETS ARE INDIA, CHINA, AND JAPAN BASED ON THE GEOGRAPHICAL ORIGIN OF THE SURVEYED CLIENTS.
+*/
 
--- Q4 - IN QUALE CITTà O PAESE CONVERREBBE APRIRE UN NUOVO PUNTO VENDITA?(HEETMAP SU MAPPA)
-
+SELECT 
+    C3.COUNTRY,
+    COUNT(DISTINCT C.CUSTOMER_ID) AS CUSTOMERS
+FROM CUSTOMER C
+JOIN ADDRESS A ON C.ADDRESS_ID = A.ADDRESS_ID
+JOIN CITY C2 ON A.CITY_ID = C2.CITY_ID
+JOIN COUNTRY C3 ON C2.COUNTRY_ID = C3.COUNTRY_ID
+WHERE C3.COUNTRY NOT IN (
+    SELECT DISTINCT COUNTRY.COUNTRY
+    FROM STORE
+    JOIN ADDRESS ON STORE.ADDRESS_ID = ADDRESS.ADDRESS_ID 
+    JOIN CITY ON ADDRESS.CITY_ID = CITY.CITY_ID
+    JOIN COUNTRY ON COUNTRY.COUNTRY_ID = CITY.COUNTRY_ID
+)
+GROUP BY 
+    C3.COUNTRY
+ORDER BY
+    CUSTOMERS DESC
+LIMIT 5;
